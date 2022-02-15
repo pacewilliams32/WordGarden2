@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import AVFoundation
 
 class ViewController: UIViewController {
     @IBOutlet weak var wordsGuessedLabel: UILabel!
@@ -27,6 +28,7 @@ class ViewController: UIViewController {
     var wordsGuessedCount = 0
     var wordsMissedCount = 0
     var guessCount = 0
+    var audioPlayer : AVAudioPlayer!
     
     @IBOutlet weak var flowerImageView: UIImageView!
     override func viewDidLoad() {
@@ -79,6 +81,42 @@ class ViewController: UIViewController {
         wordsRemainingLabel.text = "Words to Guess: \(wordsToGuess.count - (wordsGuessedCount + wordsMissedCount))"
         wordsInGameLabel.text = "Words in Game: \(wordsToGuess.count)"
     }
+    func drawFlowerAndPlaySound(currentLetterGuessed : String) {
+        if wordToGuess.contains(currentLetterGuessed) == false {
+            wrongGuessesRemaining -= 1
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                UIView.transition(with: self.flowerImageView,
+                                  duration: 0.5,
+                                  options: .transitionCrossDissolve,
+                                  animations: {self.flowerImageView.image = UIImage(named: "wilt\(self.wrongGuessesRemaining)")}) { (_) in
+                    
+                    // if we are not on the last flower
+                    // - show the next flower
+                    // otherwise were on flower 9
+                    if self.wrongGuessesRemaining != 0 {
+                        self.flowerImageView.image = UIImage(named: "flower\(self.wrongGuessesRemaining)")
+                    } else {
+                        self.playSound(name: "word-not-guessed")
+                        UIView.transition(with: self.flowerImageView,
+                                          duration: 0.5,
+                                          options: .transitionCrossDissolve,
+                                          animations: {self.flowerImageView.image = UIImage(named: "flower\(self.wrongGuessesRemaining)")},
+                                          completion: nil)
+                    }
+                    
+                    
+                    self.playSound(name: "incorrect")
+
+            }
+            
+            
+            }
+        } else {
+            playSound(name: "correct")
+        }
+        
+    }
     
     func guessALetter() {
         // Get current letters guessed and add it to all lettersGuessed
@@ -87,12 +125,8 @@ class ViewController: UIViewController {
         
         // format and show revealedWord in wordBeingRevealedLabel to include new guess
         formatRevealedWord()
+        drawFlowerAndPlaySound(currentLetterGuessed: currentLetterGuessed)
         
-        // Update image, if needed, and keep track of wrong guesses
-        if wordToGuess.contains(currentLetterGuessed) == false {
-            wrongGuessesRemaining -= 1
-            flowerImageView.image = UIImage(named: "flower\(wrongGuessesRemaining)")
-        }
         // Update gameStatusMessageLabel
         guessCount += 1
         var guesses = "Guesses"
@@ -108,6 +142,7 @@ class ViewController: UIViewController {
         if wordsBeingRevealedLabel.text!.contains("_") == false {
             gameStatusMessageLabel.text = "You've guessed it! It took you \(guessCount) guesses to guess the word."
             wordsGuessedCount += 1
+            playSound(name: "word-guessed")
             updateAfterWinOrLose()
         } else if wrongGuessesRemaining == 0 {
             gameStatusMessageLabel.text = "So sorry, you're all out of guesses."
@@ -123,8 +158,22 @@ class ViewController: UIViewController {
         
     }
     
+    func playSound(name: String) {
+        if let sound = NSDataAsset(name: name) {
+            do {
+                try audioPlayer = AVAudioPlayer(data: sound.data)
+                audioPlayer.play()
+            } catch {
+                print("ERROR: \(error.localizedDescription). Could not initalize AVAudioPlayer object")
+            }
+        } else {
+                print("Could not read data from file: \(name)")
+            }
+        }
+    
+    
     @IBAction func guessedLetterFieldChanged(_ sender: UITextField) {
-        sender.text = String(sender.text?.last ?? " ").trimmingCharacters(in: .whitespaces)
+        sender.text = String(sender.text?.last ?? " ").trimmingCharacters(in: .whitespaces).uppercased()
         guessLetterButton.isEnabled = !(sender.text!.isEmpty)
         
     }
